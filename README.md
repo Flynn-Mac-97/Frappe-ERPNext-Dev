@@ -14,6 +14,8 @@ MYSQL_ROOT_PASSWORD='set-a-strong-mariadb-root-password' \
 ./setup_bench.sh
 ```
 
+`ADMIN_PASSWORD` and `MYSQL_ROOT_PASSWORD` must both be at least 12 characters.
+
 Optional overrides:
 
 ```bash

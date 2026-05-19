@@ -8,8 +8,15 @@ MYSQL_ROOT_PASSWORD="${MYSQL_ROOT_PASSWORD:-}"
 CUSTOM_APP_REPO="${CUSTOM_APP_REPO:-https://github.com/Flynn-Mac-97/private_frappe_codespace.git}"
 DRY_RUN="${DRY_RUN:-0}"
 
+is_dry_run() {
+  case "${DRY_RUN}" in
+    1|true|TRUE|yes|YES) return 0 ;;
+    *) return 1 ;;
+  esac
+}
+
 run_cmd() {
-  if [ "${DRY_RUN}" = "1" ]; then
+  if is_dry_run; then
     printf '[dry-run] %q ' "$@"
     printf '\n'
   else
@@ -46,14 +53,18 @@ if [ -z "${STABLE_BRANCH:-}" ]; then
   exit 1
 fi
 
-if [ "${DRY_RUN}" != "1" ] && { [ -z "${ADMIN_PASSWORD}" ] || [ -z "${MYSQL_ROOT_PASSWORD}" ]; }; then
+if ! is_dry_run && { [ -z "${ADMIN_PASSWORD}" ] || [ -z "${MYSQL_ROOT_PASSWORD}" ]; }; then
   echo "Set both ADMIN_PASSWORD and MYSQL_ROOT_PASSWORD before running setup." >&2
+  exit 1
+fi
+if ! is_dry_run && { [ "${#ADMIN_PASSWORD}" -lt 12 ] || [ "${#MYSQL_ROOT_PASSWORD}" -lt 12 ]; }; then
+  echo "Use ADMIN_PASSWORD and MYSQL_ROOT_PASSWORD with at least 12 characters." >&2
   exit 1
 fi
 
 run_cmd bench init "${BENCH_DIR}" --frappe-branch "${STABLE_BRANCH}"
-if [ "${DRY_RUN}" != "1" ]; then
-  cd "${BENCH_DIR}"
+if ! is_dry_run; then
+  cd "${BENCH_DIR}" || { echo "Failed to change to directory ${BENCH_DIR}." >&2; exit 1; }
 fi
 
 run_cmd bench get-app erpnext --branch "${STABLE_BRANCH}"
