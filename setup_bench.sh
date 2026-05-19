@@ -43,7 +43,7 @@ detect_stable_branch_from_tags() {
 
 if [ -z "${STABLE_BRANCH:-}" ]; then
   if ! STABLE_BRANCH="$(detect_stable_branch_from_tags)"; then
-    echo "Warning: Unable to detect stable branch from ERPNext tags." >&2
+    echo "Warning: Unable to detect stable branch from ERPNext tags. Check network access or set STABLE_BRANCH manually." >&2
     STABLE_BRANCH=""
   fi
 fi
