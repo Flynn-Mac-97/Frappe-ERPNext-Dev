@@ -9,8 +9,8 @@ Creates a Frappe bench with:
 Run:
 
 ```bash
-ADMIN_PASSWORD='set-a-strong-admin-password' \
-MYSQL_ROOT_PASSWORD='set-a-strong-mariadb-root-password' \
+ADMIN_PASSWORD='YOUR_ADMIN_PASSWORD_HERE' \
+MYSQL_ROOT_PASSWORD='YOUR_MARIADB_ROOT_PASSWORD_HERE' \
 ./setup_bench.sh
 ```
 
@@ -22,8 +22,8 @@ Optional overrides:
 STABLE_BRANCH=version-15 \
 BENCH_DIR=frappe-bench \
 SITE_NAME=dev.localhost \
-ADMIN_PASSWORD='set-a-strong-admin-password' \
-MYSQL_ROOT_PASSWORD='set-a-strong-mariadb-root-password' \
+ADMIN_PASSWORD='YOUR_ADMIN_PASSWORD_HERE' \
+MYSQL_ROOT_PASSWORD='YOUR_MARIADB_ROOT_PASSWORD_HERE' \
 ./setup_bench.sh
 ```
 

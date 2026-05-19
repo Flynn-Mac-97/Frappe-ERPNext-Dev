@@ -6,6 +6,7 @@ SITE_NAME="${SITE_NAME:-dev.localhost}"
 ADMIN_PASSWORD="${ADMIN_PASSWORD:-}"
 MYSQL_ROOT_PASSWORD="${MYSQL_ROOT_PASSWORD:-}"
 CUSTOM_APP_REPO="${CUSTOM_APP_REPO:-https://github.com/Flynn-Mac-97/private_frappe_codespace.git}"
+ERPNEXT_REPO="${ERPNEXT_REPO:-https://github.com/frappe/erpnext.git}"
 DRY_RUN="${DRY_RUN:-0}"
 
 is_dry_run() {
@@ -27,7 +28,7 @@ run_cmd() {
 detect_stable_branch_from_tags() {
   local latest_tag latest_major
   latest_tag="$(
-    git ls-remote --tags --refs https://github.com/frappe/erpnext.git 'v*' \
+    git ls-remote --tags --refs "${ERPNEXT_REPO}" 'v*' \
       | awk -F/ '{print $3}' \
       | sed 's/^v//' \
       | sort -V \
@@ -43,13 +44,13 @@ detect_stable_branch_from_tags() {
 
 if [ -z "${STABLE_BRANCH:-}" ]; then
   if ! STABLE_BRANCH="$(detect_stable_branch_from_tags)"; then
-    echo "Warning: Unable to detect stable branch from ERPNext tags. Check network access or set STABLE_BRANCH manually." >&2
+    echo "Warning: Failed to detect stable ERPNext branch. Verify network/GitHub access, or set STABLE_BRANCH (for example: version-16)." >&2
     STABLE_BRANCH=""
   fi
 fi
 
 if [ -z "${STABLE_BRANCH:-}" ]; then
-  echo "Unable to auto-detect stable branch. Set STABLE_BRANCH (for example: version-16)." >&2
+  echo "Error: Unable to auto-detect stable branch. Set STABLE_BRANCH (for example: version-16)." >&2
   exit 1
 fi
 
