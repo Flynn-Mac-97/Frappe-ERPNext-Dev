@@ -44,13 +44,13 @@ detect_stable_branch_from_tags() {
 
 if [ -z "${STABLE_BRANCH:-}" ]; then
   if ! STABLE_BRANCH="$(detect_stable_branch_from_tags)"; then
-    echo "Warning: Failed to detect stable ERPNext branch. Verify network/GitHub access, or set STABLE_BRANCH (for example: version-16)." >&2
+    echo "Warning: Failed to detect stable ERPNext branch. Verify network/GitHub access, or set STABLE_BRANCH (for example: version-XX)." >&2
     STABLE_BRANCH=""
   fi
 fi
 
 if [ -z "${STABLE_BRANCH:-}" ]; then
-  echo "Error: Unable to auto-detect stable branch. Set STABLE_BRANCH (for example: version-16)." >&2
+  echo "Error: Unable to auto-detect stable branch. Set STABLE_BRANCH (for example: version-XX)." >&2
   exit 1
 fi
 
