@@ -3,8 +3,8 @@ set -euo pipefail
 
 BENCH_DIR="${BENCH_DIR:-frappe-bench}"
 SITE_NAME="${SITE_NAME:-dev.localhost}"
-ADMIN_PASSWORD="${ADMIN_PASSWORD:-admin}"
-MYSQL_ROOT_PASSWORD="${MYSQL_ROOT_PASSWORD:-root}"
+ADMIN_PASSWORD="${ADMIN_PASSWORD:-$(python3 -c 'import secrets; print(secrets.token_urlsafe(16))')}"
+MYSQL_ROOT_PASSWORD="${MYSQL_ROOT_PASSWORD:-$(python3 -c 'import secrets; print(secrets.token_urlsafe(16))')}"
 CUSTOM_APP_REPO="${CUSTOM_APP_REPO:-https://github.com/Flynn-Mac-97/private_frappe_codespace.git}"
 DRY_RUN="${DRY_RUN:-0}"
 
@@ -17,26 +17,28 @@ run_cmd() {
   fi
 }
 
-if [ -n "${STABLE_BRANCH:-}" ]; then
-  STABLE_BRANCH="${STABLE_BRANCH}"
-else
-  STABLE_BRANCH="$(
-    python3 - <<'PY'
-import json
-import re
-import urllib.request
-
-with urllib.request.urlopen("https://api.github.com/repos/frappe/erpnext/releases/latest", timeout=15) as r:
-    data = json.load(r)
-
-tag = data["tag_name"]
-match = re.match(r"v?(\d+)\.", tag)
-if not match:
-    raise SystemExit(f"Could not derive stable branch from tag: {tag}")
-
-print(f"version-{match.group(1)}")
-PY
+detect_stable_branch_from_tags() {
+  local latest_tag latest_major
+  latest_tag="$(
+    git ls-remote --tags --refs https://github.com/frappe/erpnext.git 'v*' \
+      | awk -F/ '{print $3}' \
+      | sed 's/^v//' \
+      | sort -V \
+      | tail -n 1
   )"
+  latest_major="$(printf '%s' "${latest_tag}" | cut -d. -f1)"
+  if [ -n "${latest_major}" ]; then
+    printf 'version-%s\n' "${latest_major}"
+  fi
+}
+
+if [ -z "${STABLE_BRANCH:-}" ]; then
+  STABLE_BRANCH="$(detect_stable_branch_from_tags || true)"
+fi
+
+if [ -z "${STABLE_BRANCH:-}" ]; then
+  echo "Unable to auto-detect stable branch. Set STABLE_BRANCH (for example: version-16)." >&2
+  exit 1
 fi
 
 run_cmd bench init "${BENCH_DIR}" --frappe-branch "${STABLE_BRANCH}"
@@ -55,3 +57,10 @@ echo "Setup complete."
 echo "Bench dir: ${BENCH_DIR}"
 echo "Site: ${SITE_NAME}"
 echo "Stable branch: ${STABLE_BRANCH}"
+if [ "${DRY_RUN}" = "1" ]; then
+  echo "Admin password: ${ADMIN_PASSWORD}"
+  echo "MariaDB root password: ${MYSQL_ROOT_PASSWORD}"
+else
+  echo "Admin password (generated if not supplied): ${ADMIN_PASSWORD}"
+  echo "MariaDB root password (generated if not supplied): ${MYSQL_ROOT_PASSWORD}"
+fi

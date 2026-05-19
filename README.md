@@ -23,6 +23,8 @@ MYSQL_ROOT_PASSWORD=root \
 ./setup_bench.sh
 ```
 
+If passwords are not provided, secure random values are generated and printed after setup.
+
 Dry-run command preview:
 
 ```bash
