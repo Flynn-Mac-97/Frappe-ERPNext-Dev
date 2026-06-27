@@ -18,9 +18,10 @@ Shopee order/product sync · SKU label overlay · ERPNext SO/DN/SI creation · r
 
 ### Wave 2 — medium (money / external API)
 - [x] **Escrow fee ingest** — `api/shopee/payment.py` `get_escrow_detail` (real v2) + `api/services/escrow_service.py` (maps `order_income` → Online Sales Order fields: escrow_amount/buyer_total/commission/service/transaction/fees_total/escrow_synced_at/escrow_payload_json) + `api/escrow.py` (single + batch enqueue + summary) + form "Sync Fees" button. Mock route `mockshopee/routers/payment.py`. **Verified on mock:** 75 synced, gross−fees==escrow exact. SHOPEE_API_NOTES Payment section added.
+- [x] **Daily P&L report** — Script Report `OSI Profit and Loss`: period Day/Month/Year × store × currency; cols Gross Sales / Platform Fees (escrow) / Net Payout / COGS / Profit / Margin %; COGS = sum(qty × Item.valuation_rate) → 0 until real per-SKU costs loaded (client Q15); ad-spend/opex out of scope. **Verified on mock:** gross−fees==net, 91% margin (pre-COGS).
 - [ ] Ship-confirm reconciliation worklist (paid-not-shipped / shipped-then-cancelled)
 - [ ] Return disposition (restock / damaged / scrap → correct stock entry)
-- [ ] COGS seed + daily P&L report
+- [ ] COGS data seeding (real per-SKU costs) to make P&L margins true
 
 ### Wave 3 — large
 - [ ] Vendor-neutral refactor → Lazada adapter → TikTok adapter
