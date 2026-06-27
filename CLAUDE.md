@@ -17,7 +17,7 @@ Shopee order/product sync · SKU label overlay · ERPNext SO/DN/SI creation · r
 - [x] **Multi-locale translation scaffold** — `scripts/osi-translations.py` now multi-locale (`merge` folds every `<lang>.pending.csv` → `<lang>.csv`; `scaffold` creates missing locale CSVs; `check` per-locale). Shipped empties `tl/th/vi/ms/hi/ja/es` alongside `zh`. Verified: non-zh fold works (th test). **Wave 1 complete.**
 
 ### Wave 2 — medium (money / external API)
-- [ ] Escrow fee ingest — implement `get_escrow_detail` in `api/shopee/payment.py` + fee storage (no new creds; same shop token)
+- [x] **Escrow fee ingest** — `api/shopee/payment.py` `get_escrow_detail` (real v2) + `api/services/escrow_service.py` (maps `order_income` → Online Sales Order fields: escrow_amount/buyer_total/commission/service/transaction/fees_total/escrow_synced_at/escrow_payload_json) + `api/escrow.py` (single + batch enqueue + summary) + form "Sync Fees" button. Mock route `mockshopee/routers/payment.py`. **Verified on mock:** 75 synced, gross−fees==escrow exact. SHOPEE_API_NOTES Payment section added.
 - [ ] Ship-confirm reconciliation worklist (paid-not-shipped / shipped-then-cancelled)
 - [ ] Return disposition (restock / damaged / scrap → correct stock entry)
 - [ ] COGS seed + daily P&L report
@@ -37,8 +37,13 @@ FastAPI fake of Shopee v2 so OSI builds + stress-tests offline. Boots, seeds sho
 - [x] Seed runner `online_store_integration/online_store_integration/_mock_seed.py` (DEV-ONLY, gitignored in OSI repo; run via `bench --site erp.localhost execute online_store_integration._mock_seed.run`). Helpers: `.report` (snapshot), `.diag` (one-order traceback), `.fixschema`. Runs on the mock at **port 9900** (9000 = Frappe socketio — do NOT use).
 - [x] **End-to-end PASS:** mock → OSI = 3 stores × 25 = 75 orders, 44 products auto-created, 0 errors, multi-currency (MYR/VND/PHP). Found + fixed a latent OSI bug: `product_service.py` read `item_row.product_image` (an `Image` field = no DB column) → `AttributeError` on the new-product path; now safe `.get()`.
 - WSL run scripts in `mock_platform/`: `start_mock.sh` (port 9900), `wsl_poll.sh`, `wsl_poll_bench.sh`, `killport.sh`. Mock venv: `/home/frappe/osi-mock-venv`. Mock served from `/mnt/c/...`.
-- [ ] Phase 2: `enable_erp="1"` run (mock → ERPNext SO/DN/SI), then firehose `gen_orders` + workers to find OSI's ceiling.
-- [ ] Routers: product (get_item_list/base_info/model_list), logistics (5), payment (get_escrow_detail).
+- [x] **Mock route** `payment.py` (`get_escrow_detail`) + control `advance_bulk` (lifecycle driver).
+- [x] **Committed E2E + stress harness** — `online_store_integration/devtools/` (NOT gitignored; guarded by `assert_mock_env` → refuses unless OSI `api_url` is local). Run via bench:
+  - `devtools.setup.connect_and_seed` — point OSI at mock + seed Online Stores
+  - `devtools.bootstrap.bootstrap` — idempotent ERPNext seed so SO/DN/SI creation works: back-dated Currency Exchange (mock-currency→company, rates overridable), allow-stale FX, allow-negative-stock, auto-create items + per-currency receivables, OSI ERP mapping, is_billing_contact drift check
+  - `devtools.scenario.full_e2e` — **PASS/FAIL per stage:** orders→gate→approve→SO/DN/SI→escrow→return reversal→reports. **Verified 6/6 PASS.**
+  - `devtools.scenario.stress` (kwargs: orders/batch/return_pct/latency_ms/error_rate) + `stress_quick`. **150-order run:** approve→SO/DN/SI ~0.44s/order (bottleneck), 0 sync errors. NOTE: sequential (single process) — add a parallel-RQ mode to reproduce prod multi-worker deadlocks.
+- [ ] Routers: product (get_item_list/base_info/model_list), logistics (5).
 
 ## Repo has two layers
 

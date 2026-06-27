@@ -10,7 +10,7 @@ from fastapi.responses import JSONResponse
 
 from mockshopee.config import load_config
 from mockshopee.envelope import err
-from mockshopee.routers import auth, control, order, shop
+from mockshopee.routers import auth, control, order, payment, shop
 from mockshopee.state import STATE
 
 app = FastAPI(title="Mock Shopee Platform", version="0.1.0")
@@ -18,6 +18,7 @@ app = FastAPI(title="Mock Shopee Platform", version="0.1.0")
 app.include_router(auth.router)
 app.include_router(shop.router)
 app.include_router(order.router)
+app.include_router(payment.router)
 app.include_router(control.router)
 
 

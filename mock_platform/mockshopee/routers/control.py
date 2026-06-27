@@ -18,6 +18,12 @@ class Advance(BaseModel):
     status: str
 
 
+class AdvanceBulk(BaseModel):
+    status: str
+    order_sns: list[str] | None = None  # None = every order (optionally filtered by shop_id)
+    shop_id: int | None = None
+
+
 class RuntimeConfig(BaseModel):
     latency_ms: int | None = None
     error_rate: float | None = None
@@ -57,6 +63,25 @@ def gen_orders(body: GenOrders):
 def advance(body: Advance):
     order = STATE.advance(body.order_sn, body.status)
     return {"order_sn": order["order_sn"], "order_status": order["order_status"]}
+
+
+@router.post("/advance_bulk")
+def advance_bulk(body: AdvanceBulk):
+    """Move many orders to a status in one call (drives lifecycle for E2E/stress)."""
+    sns = body.order_sns
+    if sns is None:
+        sns = [
+            sn for sn, o in STATE.orders.items()
+            if body.shop_id is None or o["shop_id"] == int(body.shop_id)
+        ]
+    updated = 0
+    for sn in sns:
+        try:
+            STATE.advance(sn, body.status)
+            updated += 1
+        except KeyError:
+            pass
+    return {"updated": updated, "status": body.status}
 
 
 @router.post("/config")
