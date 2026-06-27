@@ -42,7 +42,8 @@ FastAPI fake of Shopee v2 so OSI builds + stress-tests offline. Boots, seeds sho
   - `devtools.setup.connect_and_seed` — point OSI at mock + seed Online Stores
   - `devtools.bootstrap.bootstrap` — idempotent ERPNext seed so SO/DN/SI creation works: back-dated Currency Exchange (mock-currency→company, rates overridable), allow-stale FX, allow-negative-stock, auto-create items + per-currency receivables, OSI ERP mapping, is_billing_contact drift check
   - `devtools.scenario.full_e2e` — **PASS/FAIL per stage:** orders→gate→approve→SO/DN/SI→escrow→return reversal→reports. **Verified 6/6 PASS.**
-  - `devtools.scenario.stress` (kwargs: orders/batch/return_pct/latency_ms/error_rate) + `stress_quick`. **150-order run:** approve→SO/DN/SI ~0.44s/order (bottleneck), 0 sync errors. NOTE: sequential (single process) — add a parallel-RQ mode to reproduce prod multi-worker deadlocks.
+  - `devtools.scenario.stress` (kwargs: orders/batch/return_pct/latency_ms/error_rate) + `stress_quick`. Sequential throughput: approve→SO/DN/SI ~0.44s/order.
+  - **Parallel-worker mode** (real multi-worker lock contention): `devtools.scenario.stress_parallel_enqueue` enqueues one ERP-creating job per order onto the `long` queue (`devtools/workers.py:approve_and_sync_one`); launch concurrency with `mock_platform/stress_workers.sh long N`; drain-poll with `mock_platform/stress_poll.sh`; report via `parallel_status` (queued/finished/failed + Error-Log deadlock/lock-wait scan). **Verified: 533 jobs × 5 workers → 0 deadlocks, 0 lock-waits, 0 failures.** Crank workers/orders/chaos to find the ceiling. (pkill of `bench worker --queue long` also stops the bench's own long worker → restart bench to restore.)
 - [ ] Routers: product (get_item_list/base_info/model_list), logistics (5).
 
 ## Repo has two layers
