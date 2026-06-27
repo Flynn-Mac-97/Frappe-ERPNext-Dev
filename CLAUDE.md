@@ -1,0 +1,185 @@
+# CLAUDE.md
+
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+
+## MALACA ERP build tracker (LOCAL-ONLY — no deploy until told)
+
+Scope source of truth: `MALACA_GAP_ANALYSIS.md` (+ client questions in `CLIENT_QUESTIONS.md`). Client-facing ZH copies: `MALACA_功能进度与待办_客户版.md`, `客户确认问题清单.md`. **Keep this tracker current** — tick items as they land.
+
+**Mode: LOCAL ONLY.** Build + test on the WSL dev bench (`erp.localhost`). Do **not** `git push upstream main` or VPS-deploy until the user explicitly says so. (The translations `merge` step still runs at every commit per the rule below.)
+
+### Done (shipped in OSI)
+Shopee order/product sync · SKU label overlay · ERPNext SO/DN/SI creation · return reversal (credit note + return DN) · multi-currency (per-currency receivables, fail-loud FX) · HTTP retry/429/token-refresh · ZH i18n pipeline · ERP resync (single batch job) · allow-negative-stock.
+
+### Wave 1 — low risk (building now)
+- [x] **Manual review gate + 刷单 flag** (config-toggled). `OSI Settings.require_order_review` (default OFF). `Online Sales Order` fields: `review_status` (pending/approved/rejected/on_hold), `reviewed_by/at`, `is_special_order`, `special_order_reason`; `erp_sync_status` += `awaiting_review`. Gate in `order_service._upsert` holds un-approved/special orders out of ERP doc creation. API `api/review.py` (approve/reject/flag/summary). UI: list bulk actions + form buttons (`_list.js` / `.js`). Patch `v13` (existing orders → approved, never retro-block). **Verified on mock:** 90 pending held, `held_with_sales_order=0`, approve flips pending→approved. zh queued in `zh.pending.csv`.
+- [x] **发货 / 退货 summary reports** — Script Reports `OSI Shipping Summary` + `OSI Return Summary` under `report/`. Filters: from/to date, period (Day/Month/Year), store, platform. Group by period × store × currency; cols Period/Store/Region/Warehouse/Currency/Orders(Returns)/Units/Value; total row; CSV/Excel export built-in. **Verified on mock:** shipping 4 rows multi-currency (MYR/PHP/VND), returns 1 row. zh queued.
+- [ ] Multi-locale translation CSV scaffold — NEXT (last Wave 1 item)
+
+### Wave 2 — medium (money / external API)
+- [ ] Escrow fee ingest — implement `get_escrow_detail` in `api/shopee/payment.py` + fee storage (no new creds; same shop token)
+- [ ] Ship-confirm reconciliation worklist (paid-not-shipped / shipped-then-cancelled)
+- [ ] Return disposition (restock / damaged / scrap → correct stock entry)
+- [ ] COGS seed + daily P&L report
+
+### Wave 3 — large
+- [ ] Vendor-neutral refactor → Lazada adapter → TikTok adapter
+- [ ] Procurement tracking + replenishment
+- [ ] AI self-evolving translation pipeline
+- [ ] Automated 刷单 detector
+
+### Offline mock-platform server — `mock_platform/` (dev-only, never shipped)
+FastAPI fake of Shopee v2 so OSI builds + stress-tests offline. Boots, seeds shops/orders from `config.yaml`, smoke-tested green. Run: `uvicorn mockshopee.main:app --port 9000` (venv in `mock_platform/.venv`).
+- [x] Core server: config-driven shops/items/orders, in-memory state, envelope, chaos middleware (latency / `error_busy` / 429+Retry-After)
+- [x] Routers: auth (flat token), shop (get_shop_info), order (list cursor-paginated + detail)
+- [x] `/__control` plane: `stats`, `shops`, `gen_orders`, `advance`, `config`, `reset`
+- [ ] Routers: product (get_item_list/base_info/model_list), logistics (5), payment (get_escrow_detail)
+- [x] Seed runner `online_store_integration/online_store_integration/_mock_seed.py` (DEV-ONLY, gitignored in OSI repo; run via `bench --site erp.localhost execute online_store_integration._mock_seed.run`). Helpers: `.report` (snapshot), `.diag` (one-order traceback), `.fixschema`. Runs on the mock at **port 9900** (9000 = Frappe socketio — do NOT use).
+- [x] **End-to-end PASS:** mock → OSI = 3 stores × 25 = 75 orders, 44 products auto-created, 0 errors, multi-currency (MYR/VND/PHP). Found + fixed a latent OSI bug: `product_service.py` read `item_row.product_image` (an `Image` field = no DB column) → `AttributeError` on the new-product path; now safe `.get()`.
+- WSL run scripts in `mock_platform/`: `start_mock.sh` (port 9900), `wsl_poll.sh`, `wsl_poll_bench.sh`, `killport.sh`. Mock venv: `/home/frappe/osi-mock-venv`. Mock served from `/mnt/c/...`.
+- [ ] Phase 2: `enable_erp="1"` run (mock → ERPNext SO/DN/SI), then firehose `gen_orders` + workers to find OSI's ceiling.
+- [ ] Routers: product (get_item_list/base_info/model_list), logistics (5), payment (get_escrow_detail).
+
+## Repo has two layers
+
+1. **Root** = provisioning + runbook for a Frappe/ERPNext bench. Not application code.
+   - `setup_bench.sh` — builds a bench: `bench init` → `bench get-app erpnext` → `bench get-app private_frappe_codespace` (the custom app) → `bench new-site` → `install-app`. Stable branch auto-detected from ERPNext git tags (`version-N`) unless `STABLE_BRANCH` set.
+   - `README.md` — quick start for `setup_bench.sh`.
+   - `BENCH_STARTUP.md` — **canonical runbook** for the local WSL bench (start, verify, asset/socket troubleshooting, VPS deploy). Read before starting/diagnosing the running bench.
+2. **`online_store_integration/`** = the custom Frappe app ("OSI"). Its own git repo. Real development happens here. Has its own deep docs — read them, don't duplicate:
+   - `PROJECT.md` — canonical OSI guide (data model, patches, fixtures, commands, guardrails).
+   - `AGENTS.md` — shortest command reference.
+   - `SHOPEE_API_NOTES.md` — **read before touching any Shopee API code.**
+
+## Three layers / where things live (verified)
+
+1. **Windows local clone** = `online_store_integration/` in this repo. The `.git` lives here (remote `upstream` → `github.com/Flynn-Mac-97/online_store_integration.git`, branch `main`). **All editing + all git happens here.**
+2. **WSL dev bench** = distro `FrappeBench`, bench `/home/frappe/frappe-bench`, runs as user `frappe`, site `erp.localhost`. Its `apps/online_store_integration` is a **symlink to the Windows clone** → editing on Windows changes the WSL app instantly (no copy). There is no separate "WSL git". (Avoid the unrelated `online_store_integration.backup.*` dir in WSL.)
+3. **VPS prod** = `47.84.1.78`, bench `/home/frappe/frappe-bench`, user `frappe`, site `frontend`. Same `upstream` remote. Deployed via `git pull`.
+
+> Provisioning vs reality: `setup_bench.sh` (`frappe-bench` / `dev.localhost`) and BENCH_STARTUP.md (`/root/frappe_bench`) are both **stale**. The live WSL bench is `/home/frappe/frappe-bench` + `erp.localhost`, matching the OSI docs and helper scripts.
+
+## Delegation & token budget (orchestrator policy)
+
+Principle: keep bulk text (full files, big diffs, failed-edit echoes) OUT of the Opus orchestrator context. Opus plans/routes/decides/talks to user + runs cheap shell. Push reading, editing, searching, reviewing into cheap caveman subagents — their output is caveman-compressed (~60% smaller). Opus holds only intent + compressed receipts.
+
+Routing (model = `Agent` tool `model` override):
+
+| Task | Agent | Model |
+|------|-------|-------|
+| Locate code / "where is X" / map dir | `caveman:cavecrew-investigator` | haiku |
+| Broad multi-area search (conclusion only) | `Explore` | haiku |
+| 1–2 file surgical edit | `caveman:cavecrew-builder` | sonnet |
+| Diff / branch / PR review | `caveman:cavecrew-reviewer` | haiku |
+| 3+ file change | orchestrator splits → many `cavecrew-builder` | sonnet |
+| Build / migrate / restart / curl poll | orchestrator `Bash` direct | — |
+| Verify behavior end-to-end | `claude` / `general-purpose` | sonnet |
+
+Loop: 1) locate (1–3 investigators parallel → `file:line` map; skip if paths known). 2) design — Opus decides scope + acceptance; no full-file reads, ranged `Read` only if truly needed. 3) edit — `cavecrew-builder`, one per 1–2 files; parallel + `isolation: worktree` when no cross-file deps, serial when dependent. 4) review — `cavecrew-reviewer`. 5) integrate — Opus runs build/migrate/restart, polls ready. 6) verify.
+
+Builder brief always includes: exact target, acceptance criteria, compressed constraints (e.g. SHOPEE_API_NOTES rule), and **"match on small unique anchors; on match-fail shrink the anchor, never resend the whole block; for tail-of-file rewrites use `head -n N` + append."** (This is the rule that would have killed the 250-line failed-edit waste.)
+
+Don't delegate: trivial one-liners (faster inline), decisions/design/user comms (Opus only), anything already small + known. **Rule of thumb: delegate when the task would otherwise dump >~100 lines of file/diff text into Opus context.** Do not spawn agents the user didn't ask for when inline is cheaper.
+
+## End-to-end workflow (all commands verified working)
+
+PowerShell↔WSL/SSH nested quoting is fragile (see hazards below). These forms work:
+
+**1. Start WSL dev bench** — `bench start` must stay foreground or the WSL distro shuts down. Launch it as a background process that holds the session open:
+```powershell
+# run_in_background; keeps WSL alive while bench serves
+wsl -d FrappeBench -u root -- su - frappe -c '/home/frappe/start-bench.sh'
+```
+Wait until ready (poll, don't guess):
+```powershell
+wsl -d FrappeBench -u root -- bash -lc 'curl -s -o /dev/null -w "%{http_code}\n" --max-time 5 http://erp.localhost:8000/api/method/ping'   # 200 = up
+```
+
+**2. Build on WSL after edits** — use a `frappe` *login* shell + full bench path (don't hand-export PATH through nested quotes, it breaks):
+```powershell
+wsl -d FrappeBench -u root -- su - frappe -c 'cd /home/frappe/frappe-bench && /home/frappe/.local/bin/bench build --app online_store_integration'
+```
+For Python/schema/fixture changes use `migrate` instead/also: `... && /home/frappe/.local/bin/bench --site erp.localhost migrate`.
+
+**3. Push to git (from the Windows clone only)** — git lives in the Windows folder; the symlink means WSL needs nothing:
+```powershell
+# from C:\...\Frappe-ERPNext-Dev\online_store_integration
+# ALWAYS first: fold queued Mandarin translations into zh.csv (see Translations below)
+python scripts/osi-translations.py merge
+git add -A; git commit -m "..."; git push upstream main
+```
+
+**Translations (Mandarin / `zh.csv`).** OSI uses the standard Frappe scheme: UI strings wrapped `_()` (Py) / `__()` (JS), translations in `online_store_integration/translations/zh.csv` (`"source","中文",""`). Workflow:
+- **While coding:** the moment you add a new translatable string, append it *with its Mandarin* to `online_store_integration/translations/zh.pending.csv` as `"Source","中文",""`. This is the running queue so you never rescan the whole codebase at commit. Auto-fill the Mandarin yourself (no separate review).
+- **At every commit (mandatory first step):** `python scripts/osi-translations.py merge` — folds the queue into `zh.csv` (updates matching keys in place, appends new ones; never reorders existing rows), then clears the queue. Commit `zh.csv` + the reset `zh.pending.csv` together.
+- `python scripts/osi-translations.py check` lists what's queued without merging.
+- Deploy needs nothing extra — `zh.csv` is pulled by the normal VPS deploy; translations load after the existing `bench build` / `bench --site … clear-cache`.
+
+**4. Deploy on VPS — pull + build:**
+```powershell
+# inspect first — prod may have uncommitted hotfixes
+ssh -i $env:USERPROFILE\.ssh\codex_vps_ed25519 -o IdentitiesOnly=yes root@47.84.1.78 "su - frappe -c 'cd /home/frappe/frappe-bench/apps/online_store_integration && git status -sb && git log --oneline -2'"
+# pull (resolve any dirty state first — see guardrail) + build with explicit node/nvm PATH
+ssh -i $env:USERPROFILE\.ssh\codex_vps_ed25519 -o IdentitiesOnly=yes root@47.84.1.78 "su - frappe -c 'cd /home/frappe/frappe-bench/apps/online_store_integration && git pull upstream main'"
+ssh -i $env:USERPROFILE\.ssh\codex_vps_ed25519 -o IdentitiesOnly=yes root@47.84.1.78 "su - frappe -c 'cd /home/frappe/frappe-bench && export PATH=/home/frappe/.nvm/versions/node/v24.15.0/bin:/usr/local/bin:/usr/bin:/bin:/home/frappe/.local/bin && bench build --app online_store_integration'"
+```
+VPS is **supervisorless** (runs plain `bench start`, no supervisor). Deploy is just: `git pull` → `bench build` → restart the `bench start` process. Run `bench --site frontend migrate` only when the pull changed DocType schema/patches/fixtures. `build` alone refreshes assets but not running Python — a Python-only change needs the `bench start` restart to take effect.
+
+> **VPS guardrail:** the prod working tree often has uncommitted hotfixes made directly on the box. Always `git status` + `git diff` before pulling. If the local commit already supersedes them, discarding is safe (`git checkout -- <files>`), but confirm with the user before destroying prod-only changes — a clean fast-forward whose diff stat matches the discarded files confirms they were the same work.
+
+## PowerShell → WSL / SSH quoting hazards (learned the hard way)
+- Wrap the remote command so PowerShell doesn't expand it: outer `'single quotes'` for `bash -lc '...'`. PowerShell tries to parse `$var:` as a drive ref — a bare `$i:` in a double-quoted string is a parse error.
+- `nohup ... &` inside a one-shot `wsl -- bash -lc` does **not** survive — the distro exits when the command returns. Hold the session open with a foreground `run_in_background` process instead.
+- Don't `export PATH=...:$PATH` through layered `su -c '...'` quotes; the `$PATH`/`;` get mangled. Use `su - frappe` (login shell loads PATH) + absolute `bench` path, or a fully literal `export PATH=...` with no `$PATH`.
+- Loops/`$()`/multiple `;` rarely survive the PowerShell→WSL hop. For "wait until ready", poll with a single `curl` in a Bash `run_in_background` until-loop rather than a bash `for`/`while` over wsl.
+- The `localhost proxy ... not mirrored` WSL stderr line is harmless noise.
+
+## Common commands (run from bench root, inside WSL/VPS as user `frappe`)
+
+OSI ships helper scripts (preferred low-token path):
+
+```bash
+apps/online_store_integration/scripts/osi-migrate.sh   # bench --site erp.localhost migrate
+apps/online_store_integration/scripts/osi-build.sh     # bench build --app online_store_integration
+apps/online_store_integration/scripts/osi-smoke.sh     # list-apps + execute frappe.utils.now
+apps/online_store_integration/scripts/osi-test.sh      # run-tests --app online_store_integration
+```
+
+Raw equivalents and others:
+
+```bash
+bench --site erp.localhost migrate                       # after schema/patch/fixture changes
+bench build --app online_store_integration               # after JS/CSS/image changes
+bench --site erp.localhost run-tests --app online_store_integration
+bench --site erp.localhost run-tests --module online_store_integration.<...>.test_<x>   # single module
+bench --site erp.localhost export-fixtures               # after UI changes meant to ship
+bench --site erp.localhost console                       # Python console with site context
+bench --site erp.localhost execute dotted.path.to.method
+bench --site erp.localhost mariadb                       # SQL shell (read-only during investigation)
+bench --site erp.localhost clear-cache
+```
+
+Lint/format: `ruff` (config in `online_store_integration/pyproject.toml`, tab indent, double quotes, line-length 110). Pre-commit config at `online_store_integration/.pre-commit-config.yaml`.
+
+## OSI architecture (the part that needs multiple files to grasp)
+
+Frappe is **metadata-driven**: business objects are DocTypes (folder of JSON metadata + optional `.py` controller + `.js`). Tables are `tab<DocType Name>`. Single DocTypes (`"issingle": 1`, e.g. **OSI Settings**) store values in `tabSingles`, not a row-per-doc table. Never alter DocType tables with raw SQL — change metadata, then `migrate`.
+
+Core DocTypes (`online_store_integration/online_store_integration/doctype/`):
+`online_store`, `online_product`, `online_sales_order` (+ `online_sales_order_item` child), `osi_settings` (single, admin-tunable config), `osi_sync_log`, `shipping_document_sku_overlay_rule`.
+
+Code layers (`online_store_integration/online_store_integration/`):
+- **`api/`** — whitelisted endpoints + integration code. `api/services/` holds vendor-neutral logic (order, product, stock, sync, token, erpnext_sales). `api/shopee/` isolates Shopee-specific code (auth, signing, http, order, logistics, product, push, returns, …). `api/utils/` helpers. **Keep vendor-specific detail under the vendor folder; shared behavior in services/utils.**
+- **`tasks.py`** — scheduler entry points. They only **enqueue** RQ jobs (`frappe.enqueue`, deduplicated by job ID); actual work runs in workers (visible in System > Background Jobs). Config (enabled/intervals/scope) read from the OSI Settings singleton. Wired via `scheduler_events` in `hooks.py`: `sync_changed_stores` (every tick, self-throttles), `refresh_expiring_tokens` (hourly), `cleanup_old_sync_logs` (daily 3am).
+- **`hooks.py`** — app integration surface: `app_include_js`, `scheduler_events`, `fixtures` (Role `OSI User`, Workspace Sidebar `eCommerce`, several Custom HTML Blocks). Prefer adding behavior here over editing framework code.
+- **`patches/`** + `patches.txt` — ordered data migrations (`v1`…`v9`), split `[pre_model_sync]` / `[post_model_sync]`. New patches append to the correct section. Make idempotent; use Frappe APIs over raw SQL.
+- **`fixtures/`** — narrow OSI-only records shipped with the app.
+- **`public/`** — desk assets; rebuild after edits.
+
+## Guardrails (from PROJECT.md / AGENTS.md)
+
+- All normal edits stay in `apps/online_store_integration`. Do **not** edit `apps/frappe` or `apps/erpnext` unless the user explicitly asks — use OSI extension points (DocTypes, hooks, patches, fixtures, services, API modules, assets). If a task seems to need framework edits, pause and explain why OSI extension points are insufficient.
+- Run `migrate` after schema/patch/fixture changes; `build` after asset changes; verify in browser at `http://erp.localhost:8000`.
+- Treat DocType JSON edits as schema changes (verify with `migrate`). For renames/data moves, add a patch, not just JSON.
+- Don't commit local HTML captures, DB exports, backups, or private site exports.
+- The Shopee `get_shipment_manifest` endpoint in `api/shopee/logistics.py` + `api/sync.py` is **unverified / likely invalid** — see SHOPEE_API_NOTES.md before relying on it.

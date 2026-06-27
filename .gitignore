@@ -1,0 +1,13 @@
+# Vendored agent skills (local tooling, not part of provisioning repo)
+.agents/
+.claude/
+skills-lock.json
+.simplemem-install/
+
+# Local bench runtime artifacts
+bench-start*.log
+cavemem_*.jsonl
+output/
+
+# The OSI app is its own git repo (remote: upstream) — do not embed/track it here
+online_store_integration/
