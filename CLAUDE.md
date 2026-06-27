@@ -14,7 +14,7 @@ Shopee order/product sync · SKU label overlay · ERPNext SO/DN/SI creation · r
 ### Wave 1 — low risk (building now)
 - [x] **Manual review gate + 刷单 flag** (config-toggled). `OSI Settings.require_order_review` (default OFF). `Online Sales Order` fields: `review_status` (pending/approved/rejected/on_hold), `reviewed_by/at`, `is_special_order`, `special_order_reason`; `erp_sync_status` += `awaiting_review`. Gate in `order_service._upsert` holds un-approved/special orders out of ERP doc creation. API `api/review.py` (approve/reject/flag/summary). UI: list bulk actions + form buttons (`_list.js` / `.js`). Patch `v13` (existing orders → approved, never retro-block). **Verified on mock:** 90 pending held, `held_with_sales_order=0`, approve flips pending→approved. zh queued in `zh.pending.csv`.
 - [x] **发货 / 退货 summary reports** — Script Reports `OSI Shipping Summary` + `OSI Return Summary` under `report/`. Filters: from/to date, period (Day/Month/Year), store, platform. Group by period × store × currency; cols Period/Store/Region/Warehouse/Currency/Orders(Returns)/Units/Value; total row; CSV/Excel export built-in. **Verified on mock:** shipping 4 rows multi-currency (MYR/PHP/VND), returns 1 row. zh queued.
-- [ ] Multi-locale translation CSV scaffold — NEXT (last Wave 1 item)
+- [x] **Multi-locale translation scaffold** — `scripts/osi-translations.py` now multi-locale (`merge` folds every `<lang>.pending.csv` → `<lang>.csv`; `scaffold` creates missing locale CSVs; `check` per-locale). Shipped empties `tl/th/vi/ms/hi/ja/es` alongside `zh`. Verified: non-zh fold works (th test). **Wave 1 complete.**
 
 ### Wave 2 — medium (money / external API)
 - [ ] Escrow fee ingest — implement `get_escrow_detail` in `api/shopee/payment.py` + fee storage (no new creds; same shop token)
@@ -109,11 +109,11 @@ python scripts/osi-translations.py merge
 git add -A; git commit -m "..."; git push upstream main
 ```
 
-**Translations (Mandarin / `zh.csv`).** OSI uses the standard Frappe scheme: UI strings wrapped `_()` (Py) / `__()` (JS), translations in `online_store_integration/translations/zh.csv` (`"source","中文",""`). Workflow:
-- **While coding:** the moment you add a new translatable string, append it *with its Mandarin* to `online_store_integration/translations/zh.pending.csv` as `"Source","中文",""`. This is the running queue so you never rescan the whole codebase at commit. Auto-fill the Mandarin yourself (no separate review).
-- **At every commit (mandatory first step):** `python scripts/osi-translations.py merge` — folds the queue into `zh.csv` (updates matching keys in place, appends new ones; never reorders existing rows), then clears the queue. Commit `zh.csv` + the reset `zh.pending.csv` together.
-- `python scripts/osi-translations.py check` lists what's queued without merging.
-- Deploy needs nothing extra — `zh.csv` is pulled by the normal VPS deploy; translations load after the existing `bench build` / `bench --site … clear-cache`.
+**Translations (multi-locale).** OSI uses the standard Frappe scheme: UI strings wrapped `_()` (Py) / `__()` (JS), translations in `online_store_integration/translations/<lang>.csv` (`"source","译文",""`). Shipped locales (MALACA spec): **zh** (primary, has content) + scaffolded empties `tl, th, vi, ms, hi, ja, es` (English is the source language, no CSV). Each locale folds from its own `<lang>.pending.csv` queue. Workflow:
+- **While coding:** the moment you add a new translatable string, append it *with its Mandarin* to `online_store_integration/translations/zh.pending.csv` as `"Source","中文",""`. This is the always-on queue so you never rescan the whole codebase at commit. Auto-fill the Mandarin yourself (no separate review). Other locales fill in later (translator / future AI step) via their own `<lang>.pending.csv`.
+- **At every commit (mandatory first step):** `python scripts/osi-translations.py merge` — folds **every** `<lang>.pending.csv` into its `<lang>.csv` (updates matching keys in place, appends new ones; never reorders existing rows), then clears the queues. Commit the changed `<lang>.csv` + reset `<lang>.pending.csv` together.
+- `python scripts/osi-translations.py check` lists what's queued (per locale) without merging. `... scaffold` creates any missing locale CSVs.
+- Deploy needs nothing extra — the `<lang>.csv` files are pulled by the normal VPS deploy; translations load after the existing `bench build` / `bench --site … clear-cache`.
 
 **4. Deploy on VPS — pull + build:**
 ```powershell
