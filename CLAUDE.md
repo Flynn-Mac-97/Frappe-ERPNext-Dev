@@ -21,9 +21,19 @@ Shopee order/product sync · SKU label overlay · ERPNext SO/DN/SI creation · r
 - [x] **Daily P&L report** — Script Report `OSI Profit and Loss`: period Day/Month/Year × store × currency; cols Gross Sales / Platform Fees (escrow) / Net Payout / COGS / Profit / Margin %; COGS = sum(qty × Item.valuation_rate) → 0 until real per-SKU costs loaded (client Q15); ad-spend/opex out of scope. **Verified on mock:** gross−fees==net, 91% margin (pre-COGS).
 - [x] **Ship-confirm reconciliation worklist** — Script Report `OSI Ship Confirm Reconciliation` (one row per order, links to OSO/SO/DN/credit note). Buckets: paid-not-shipped (paid, no DN, no shipped_at, not dead) + shipped-then-cancelled (cancelled/refunded with DN or shipped_at; hides already-reversed unless `include_reversed`). Filters: bucket/store/platform/from-to/min_age_days. Summary pills + bucket chart; days>7 highlighted red. Dev check `devtools/recon_check.py`. **Verified on live site data:** 226 orders → 2 paid-not-shipped + 1 shipped-then-cancelled (DN, no CN) correctly flagged. zh queued.
 - [x] **Return disposition** (restock / damaged / scrap). OSO fields `return_disposition` + `disposition_stock_entry` (read-only, one-shot — change after stock moved throws); `OSI Settings.damaged_warehouse`. restock = no stock doc (return DN already restocked); damaged = Material Transfer → damaged warehouse; scrap = Material Issue. API `api/disposition.py` (set_disposition/summary) + form Disposition buttons (show when return DN set & undecided). Dev check `devtools/disposition_check.py` (+ `make_returns`/`repair_crosslinked`). **Verified on mock: all 5 checks PASS.** zh queued+merged. **Bonus fix (15dc19a):** existing-doc lookups in `erpnext_sales_service` matched credit notes / return DNs / cancelled docs (return docs copy `sales_order` refs) → crosslinked 9 dev orders, broke reversal with "quantity must be negative number"; now filtered `docstatus < 2 AND is_return = 0`. full_e2e 6/6 PASS post-fix.
-- [ ] COGS data seeding (real per-SKU costs) to make P&L margins true
+- [ ] COGS **manual entry per SKU** (client answer 2026-06-30: hand-keyed, not procurement-derived) → feeds P&L
+- [ ] `OSI Cost Entry` doctype — manual ads / domestic+intl logistics / opex / FX costs into P&L (client-confirmed manual input)
+- [ ] Platform + SKU dimensions on shipping/return summary reports (client ask)
 
-### Wave 3 — large
+### Wave 2.5 — new client requirements (spec 1.0.1 + answer sheet, see MALACA_GAP_ANALYSIS.md v2)
+- [ ] Audit-trail hardening (track_changes + per-order action timeline; client: 留痕 mandatory)
+- [ ] 1000 orders/day certification run (formal, with chaos; harness exists)
+- [ ] Populate tl/th/vi/ms translation CSVs (launch languages zh/en/tl/th/vi/ms)
+- [x] **Packaging audit** — `devtools/packaging_audit.py`; all reports/notifications/print-format/dashboard-charts/workspaces = standard module docs, roles/sidebars/HTML blocks = fixtures. Fixed: `OSI Connection Settings Workspace` sidebar added to fixtures. **PACKAGING OK** — fresh install reproduces full app.
+
+### Wave 3 — large (client-reprioritized: Lazada/TikTok DEFERRED, Shopee-only v1)
+- [ ] **Roles / permissions / data isolation** (Company→Dept→Manager→Specialist, isolation by platform/country/warehouse/dept, ~100 users / ~1000 shops) — design doc first, biggest v1 risk
+- [ ] **AI customer service module** (Duoke-AI-style multi-store chat, spec 1.0.1) — XL, phase to be confirmed with client
 - [~] **Vendor-neutral refactor** (281e3cd): `api/adapters/` — `PlatformAdapter` ABC + `get_adapter(platform)` registry + `ShopeeAdapter` (thin delegation; Shopee payloads = canonical shape, other adapters translate into it). All neutral code (services/tasks/sync/webhook/auth/pdf-utils) now vendor-import-free; `_sync_stores_job` store query no longer hardcodes shopee. full_e2e 6/6 PASS through seam. **Remaining: Lazada adapter → TikTok adapter** (need client API creds + mock routes).
 - [ ] Procurement tracking + replenishment
 - [ ] AI self-evolving translation pipeline
