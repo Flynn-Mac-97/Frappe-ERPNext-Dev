@@ -24,7 +24,7 @@ Shopee order/product sync · SKU label overlay · ERPNext SO/DN/SI creation · r
 - [ ] COGS data seeding (real per-SKU costs) to make P&L margins true
 
 ### Wave 3 — large
-- [ ] Vendor-neutral refactor → Lazada adapter → TikTok adapter
+- [~] **Vendor-neutral refactor** (281e3cd): `api/adapters/` — `PlatformAdapter` ABC + `get_adapter(platform)` registry + `ShopeeAdapter` (thin delegation; Shopee payloads = canonical shape, other adapters translate into it). All neutral code (services/tasks/sync/webhook/auth/pdf-utils) now vendor-import-free; `_sync_stores_job` store query no longer hardcodes shopee. full_e2e 6/6 PASS through seam. **Remaining: Lazada adapter → TikTok adapter** (need client API creds + mock routes).
 - [ ] Procurement tracking + replenishment
 - [ ] AI self-evolving translation pipeline
 - [ ] Automated 刷单 detector
