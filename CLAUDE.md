@@ -26,9 +26,9 @@ Shopee order/product sync · SKU label overlay · ERPNext SO/DN/SI creation · r
 - [ ] Platform + SKU dimensions on shipping/return summary reports (client ask)
 
 ### Wave 2.5 — new client requirements (spec 1.0.1 + answer sheet, see MALACA_GAP_ANALYSIS.md v2)
-- [ ] Audit-trail hardening (track_changes + per-order action timeline; client: 留痕 mandatory)
-- [ ] 1000 orders/day certification run (formal, with chaos; harness exists)
-- [ ] Populate tl/th/vi/ms translation CSVs (launch languages zh/en/tl/th/vi/ms)
+- [x] **Audit-trail hardening** (da4efea) — track_changes on OSO/Store/Product/Settings (Versions on save); `api/utils/audit.py` timeline comments for set_value transitions (approve/reject/flag/disposition). `devtools/audit_check.py` 2/2 PASS.
+- [x] **1000/day certification** (b689ffe) — `devtools/cert.py` wave-enqueue runner (queue cap 550). **PASS: 1068 orders full pipeline in 491s = 2.17/s ≈ 188k/day projected, 0 deadlocks/lock-waits.** Report: `PERF_CERT_1000.md`.
+- [x] **tl/th/vi/ms translations populated** (b689ffe) — full 548-string catalogs each (AI-drafted, need native spot-check). Launch set zh/en/tl/th/vi/ms complete. **Wave 2.5 complete.**
 - [x] **Packaging audit** — `devtools/packaging_audit.py`; all reports/notifications/print-format/dashboard-charts/workspaces = standard module docs, roles/sidebars/HTML blocks = fixtures. Fixed: `OSI Connection Settings Workspace` sidebar added to fixtures. **PACKAGING OK** — fresh install reproduces full app.
 
 ### Wave 3 — large (client-reprioritized: Lazada/TikTok DEFERRED, Shopee-only v1)
