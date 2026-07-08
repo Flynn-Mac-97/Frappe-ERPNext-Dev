@@ -112,15 +112,14 @@ Unchanged: lean on ERPNext PO/PR later; replenishment Wave 3. Client's COGS answ
 
 **Client requires:** multi-company tenancy; Company → Department → Manager → Specialist hierarchy; top-down permission granting; isolation by platform/country/warehouse/department; partners as second-level departments; ~100 concurrent users; no external access.
 
-**Have:**
-- ⚠️ Single role `OSI User` + System Manager. No isolation.
+**Have:** ✅ **SHIPPED (local, 2026-07-08)** — `devtools/perm_check.py` 8/8 PASS.
 
-**Tasks:** _Risk: High (touches every query) · Effort: L–XL — design first_
-- [ ] Design doc: map client hierarchy onto Frappe primitives — Company (exists), Department (exists), **User Permission** rows for store/warehouse/company scoping, role profiles per function (Ops/Finance/Procurement × GM/Manager/Supervisor/Specialist).
-- [ ] `permission_query_conditions` + `has_permission` hooks on OSI doctypes honoring store/region/warehouse User Permissions.
-- [ ] Role fixtures: OSI Ops Specialist / Ops Supervisor / Finance / Procurement / Admin, with report + action rights matching the answer sheet (review = ops specialist; finance data = finance roles; settings/platform connect = admin).
-- [ ] Store→country/platform mapping already on `Online Store` — isolation keys exist; enforcement is the work.
-- [ ] Concurrency: 100 users is fine for Frappe/MariaDB; validate under §9 load test.
+**Tasks:** _done_
+- [x] Design doc `PERMISSIONS_DESIGN.md` — hierarchy mapped to Company + Department (partners = child departments) + Users + Roles + User Permission rows; store = isolation grain (platform/country isolation by grouping stores into departments — UP targets Link doctypes only).
+- [x] `permission_query_conditions` + `has_permission` hooks on 5 OSI doctypes (`api/utils/isolation.py`) honoring User Permissions on Online Store / Department (incl. descendants) / Company / Warehouse (union; System Manager / Administrator / no-UP users unrestricted → background jobs unaffected). All 6 reports row-filtered; all 49 whitelisted endpoints role-guarded + store-scoped.
+- [x] Role fixtures: OSI Ops Specialist / OSI Ops Manager / OSI Finance / OSI Admin (+ legacy OSI User). Review = ops roles; finance reports + Cost Entry = Finance/Admin; settings/platform connect/token export = Admin. (Procurement role deferred with procurement module.)
+- [x] `Online Store` += `company` + `department` fields (patch `v14` backfills company from OSI Settings).
+- [ ] Concurrency: 100 users fine for Frappe/MariaDB; optionally revalidate under §9 load test with isolation hooks on (expected negligible — hooks no-op for unrestricted users, single indexed IN-clause for restricted).
 
 ---
 
