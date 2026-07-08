@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Scope source of truth: `MALACA_GAP_ANALYSIS.md` (+ client questions in `CLIENT_QUESTIONS.md`). Client-facing ZH copies: `MALACA_功能进度与待办_客户版.md`, `客户确认问题清单.md`. **Keep this tracker current** — tick items as they land.
 
-**Mode: LOCAL ONLY.** Build + test on the WSL dev bench (`erp.localhost`). Do **not** `git push upstream main` or VPS-deploy until the user explicitly says so. (The translations `merge` step still runs at every commit per the rule below.)
+**Mode: DEPLOYED.** v1 stack (through `b786b76`) pushed + live on VPS prod (`www.erp-melaka.com`, site `frontend`) as of 2026-07-08 — verified: docs_check 8/8 on prod, workers/scheduler restarted on new code, `is_billing_contact` present. Future work: build + verify on the WSL dev bench first; push/deploy only when the user says so. (Translations `merge` still runs at every commit per the rule below.) Post-deploy pending: assign new OSI roles to real prod users; review-gate rollout with client.
 
 ### Done (shipped in OSI)
 Shopee order/product sync · SKU label overlay · ERPNext SO/DN/SI creation · return reversal (credit note + return DN) · multi-currency (per-currency receivables, fail-loud FX) · HTTP retry/429/token-refresh · ZH i18n pipeline · ERP resync (single batch job) · allow-negative-stock.
