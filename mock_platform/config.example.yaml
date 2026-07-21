@@ -16,3 +16,32 @@ orders:
   seed_per_shop: 25      # orders generated per shop at startup
   default_status: READY_TO_SHIP   # status new/seeded orders get (so OSI pulls them as actionable)
   window_days: 7         # orders' create_time spread back over this many days
+
+# Outbound push to the OSI webhook (simulates Shopee push notifications).
+# key MUST match OSI Settings -> shopee_push_key (or app_partner_key).
+push:
+  enabled: true
+  # In WSL, /etc/hosts is auto-regenerated so erp.localhost resolution is flaky —
+  # point at the loopback IP and set host below; Frappe routes by Host header.
+  url: "http://127.0.0.1:8000/api/method/online_store_integration.api.webhook.shopee_push_webhook"
+  host: "erp.localhost"
+  key: "dev-shopee-push-key"
+  code: 3
+
+# Live-traffic simulator: sporadic order arrivals + lifecycle progression,
+# each change pushed to OSI (no OSI-side polling). Models a real trading day.
+drip:
+  enabled: true            # auto-start on boot
+  mode: sporadic           # sporadic = Poisson arrivals (realistic gaps/bursts); fixed = legacy steady interval
+  orders_per_day: 1000     # target daily volume (mean gap ~86s at 1000/day)
+  time_scale: 1.0          # >1 compresses time so you don't wait real hours: 24 = a full day of traffic per hour
+  diurnal: true            # weight arrivals by time of day (busy afternoons, quiet nights)
+  shop_id: null            # null = round-robin across all shops
+  max_orders: 0            # 0 = unlimited
+  interval_seconds: 5      # fixed-mode only
+  lifecycle:
+    enabled: true          # age orders forward on the Shopee side so escrow/finance/returns populate
+    grace_seconds: 3600    # scaled by time_scale; orders newer than this stay put for you to process by hand
+    tick_seconds: 300      # scaled; how often the advancer runs
+    cancel_pct: 0.05       # READY_TO_SHIP -> CANCELLED
+    return_pct: 0.05       # SHIPPED -> REFUNDED (else COMPLETED)

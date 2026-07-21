@@ -27,6 +27,30 @@ DEFAULTS = {
         "default_status": "READY_TO_SHIP",
         "window_days": 7,
     },
+    "push": {
+        "enabled": False,
+        "url": "http://erp.localhost:8000/api/method/online_store_integration.api.webhook.shopee_push_webhook",
+        "host": None,   # override the Host header (set when url uses a raw IP; see config.yaml)
+        "key": "dev-shopee-push-key",
+        "code": 3,
+    },
+    "drip": {
+        "enabled": False,
+        "mode": "sporadic",          # "sporadic" (Poisson arrivals) | "fixed" (legacy interval)
+        "orders_per_day": 1000,      # sporadic-mode target daily volume
+        "time_scale": 1.0,           # >1 compresses wall-clock (24 = one day of traffic per hour)
+        "diurnal": True,             # shape arrivals by time of day (peak mid-afternoon)
+        "shop_id": None,             # None = round-robin across all shops
+        "max_orders": 0,             # 0 = unlimited
+        "interval_seconds": 5,       # fixed-mode only
+        "lifecycle": {
+            "enabled": True,
+            "grace_seconds": 3600,   # scaled by time_scale; recent orders left for manual processing
+            "tick_seconds": 300,     # scaled; how often the advancer runs
+            "cancel_pct": 0.05,      # READY_TO_SHIP -> CANCELLED
+            "return_pct": 0.05,      # SHIPPED -> REFUNDED (else COMPLETED)
+        },
+    },
 }
 
 

@@ -9,7 +9,10 @@ import random
 import time
 
 _BASE_SHOP_ID = 700000
-_order_seq = itertools.count(1)
+# Seed the SN counter from boot time so order SNs never collide across mock
+# restarts — a fresh counter would regenerate SNs an OSI dev site already
+# ingested, turning every "new" order into a silent update.
+_order_seq = itertools.count(int(time.time()) % 100_000_000)
 
 _FIRST = ["Wei", "Mei", "Anh", "Linh", "Jose", "Maria", "Siti", "Arun", "Nok", "Tien"]
 _LAST = ["Tan", "Lim", "Nguyen", "Tran", "Cruz", "Reyes", "Bin", "Rao", "Wong", "Le"]

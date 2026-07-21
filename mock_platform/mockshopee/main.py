@@ -10,7 +10,7 @@ from fastapi.responses import JSONResponse
 
 from mockshopee.config import load_config
 from mockshopee.envelope import err
-from mockshopee.routers import auth, control, order, payment, shop
+from mockshopee.routers import auth, control, logistics, order, payment, shop
 from mockshopee.state import STATE
 
 app = FastAPI(title="Mock Shopee Platform", version="0.1.0")
@@ -19,12 +19,24 @@ app.include_router(auth.router)
 app.include_router(shop.router)
 app.include_router(order.router)
 app.include_router(payment.router)
+app.include_router(logistics.router)
 app.include_router(control.router)
 
 
 @app.on_event("startup")
 def _seed_on_startup() -> None:
-    STATE.seed(load_config())
+    config = load_config()
+    STATE.seed(config)
+    from .drip import DRIP
+    DRIP.configure(config)
+    if (config.get("drip") or {}).get("enabled"):
+        DRIP.start({})
+
+
+@app.on_event("shutdown")
+async def _shutdown():
+    from .drip import DRIP
+    await DRIP.stop()
 
 
 @app.middleware("http")

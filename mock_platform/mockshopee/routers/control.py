@@ -1,9 +1,10 @@
 """Control plane — NOT part of Shopee. Drives scenarios and load for testing OSI."""
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Body
 from pydantic import BaseModel
 
 from mockshopee.state import STATE
+from ..drip import DRIP
 
 router = APIRouter(prefix="/__control")
 
@@ -96,3 +97,18 @@ def set_config(body: RuntimeConfig):
 @router.post("/reset")
 def reset():
     return STATE.reset()
+
+
+@router.post("/drip/start")
+async def drip_start(body: dict = Body(default={})):
+    return DRIP.start(body)
+
+
+@router.post("/drip/stop")
+async def drip_stop():
+    return await DRIP.stop()
+
+
+@router.get("/drip/status")
+async def drip_status():
+    return DRIP.status()
